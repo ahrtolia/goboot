@@ -1,0 +1,49 @@
+app:
+  name: "goboot"
+
+nacos:
+  namespace: "b652ebeb-fc2c-4f5f-8398-316914b0be27"
+
+
+# HTTP 服务器配置
+http:
+  port: 8082           # 端口号
+  addr: 0.0.0.0        # 地址
+  log_format: json     # 日志格式，可选 "json" 或其他
+  debug: false         # 是否启用调试模式
+  gin_mode: release    # Gin 模式，可选 "release", "debug" 或 "test"
+  read_timeout: 10s    # 请求超时时间
+  write_timeout: 10s   # 响应超时时间
+  idle_timeout: 60s    # 空闲超时时间
+  max_header: 1048576  # Header 最大字节数 (单位：字节)
+
+# 数据库配置
+db:
+  db_host: localhost           # 数据库主机地址
+  db_port: 3306                # 数据库端口
+  db_user: root                # 数据库用户名
+  db_password: your_password   # 数据库密码
+  db_name: my_database         # 数据库名称
+  db_charset: utf8mb4          # 数据库字符集
+  db_max_idle_conns: 10        # 最大空闲连接数
+  db_max_open_conns: 100       # 最大打开连接数
+  db_conn_max_lifetime: 1h     # 连接最大存活时间
+  db_parse_time: true          # 是否解析时间
+  db_loc: Local                # 数据库时区
+  db_log_level: warn           # GORM 日志级别，可选 "silent", "error", "warn", "info"
+  db_enable_auto_migrate: false # 是否启用自动迁移
+  db_ssl_mode: disable         # SSL 模式（仅 PostgreSQL 使用）
+  db_socket: ''                # 数据库 Unix 套接字连接（适用于 Google Cloud 或特殊环境）
+  db_driver: mysql             # 数据库驱动类型，可选 "mysql", "postgresql"
+
+logger:
+  level: debug            # 日志级别（可选值: debug, info, warn, error）。默认: info
+  development: false     # 是否是开发模式。默认: false
+  # 文件相关配置
+  file_name: app.log      # 日志文件名，默认: app.log
+  max_size_mb: 20         # 单个日志文件最大尺寸 (单位: MB)。默认: 20
+  max_age_days: 7         # 日志文件最多保留多少天。默认: 7
+  compress: false         # 是否压缩历史日志文件。默认: false
+  # 输出相关配置
+  console_enabled: true   # 是否启用控制台输出。默认: true
+  file_enabled: true      # 是否启用文件输出。默认: true
