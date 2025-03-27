@@ -7,21 +7,13 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/google/wire"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 var (
 	ErrConfigCenterNotFound = errors.New("config center not found")
 	ErrConfigReloaderExists = errors.New("config reloader already registered")
 )
-
-type Logger interface {
-	Error(msg string, fields ...zap.Field)
-	Info(msg string, fields ...zap.Field)
-	Debug(msg string, fields ...zap.Field)
-}
 
 type ConfigReloader interface {
 	ReloadConfig(newViper *viper.Viper) error
@@ -34,9 +26,19 @@ type ConfigCenter interface {
 	Close()
 }
 
+type ConfigFile string
+type ConfigCenterType string
+
 type Options struct {
-	ConfigFile   string
-	ConfigCenter string
+	ConfigFile   ConfigFile
+	ConfigCenter ConfigCenterType
+}
+
+func NewOptions() Options {
+	return Options{
+		ConfigFile:   ConfigFile("config.yaml"), // 你可以改成读取 ENV 或默认值
+		ConfigCenter: ConfigCenterType("nacos"),
+	}
 }
 
 type ConfigManager struct {
@@ -46,33 +48,15 @@ type ConfigManager struct {
 	reloaders    map[string]ConfigReloader
 	configCenter ConfigCenter
 	adapters     map[string]ConfigCenter
-	logger       Logger
 }
 
-func NewConfigManager(logger Logger, opts Options) (*ConfigManager, error) {
-	cm := &ConfigManager{
-		options:   opts,
+func NewConfigManager(opt Options) *ConfigManager {
+	return &ConfigManager{
+		options:   opt,
 		v:         viper.New(),
 		reloaders: make(map[string]ConfigReloader),
 		adapters:  make(map[string]ConfigCenter),
-		logger:    logger,
 	}
-
-	// Initialize local config
-	if opts.ConfigFile != "" {
-		if err := cm.initLocal(opts.ConfigFile); err != nil {
-			return nil, fmt.Errorf("failed to init local config: %w", err)
-		}
-	}
-
-	// Initialize config center
-	if opts.ConfigCenter != "" {
-		if err := cm.initConfigCenter(); err != nil {
-			return nil, fmt.Errorf("failed to init config center: %w", err)
-		}
-	}
-
-	return cm, nil
 }
 
 func (cm *ConfigManager) initLocal(configFile string) error {
@@ -83,8 +67,6 @@ func (cm *ConfigManager) initLocal(configFile string) error {
 
 	cm.v.WatchConfig()
 	cm.v.OnConfigChange(func(e fsnotify.Event) {
-		cm.logger.Info("Config file changed, triggering reload",
-			zap.String("file", e.Name))
 		cm.fireReload()
 	})
 
@@ -92,12 +74,12 @@ func (cm *ConfigManager) initLocal(configFile string) error {
 }
 
 func (cm *ConfigManager) initConfigCenter() error {
-	centerConfig := cm.v.Sub("config_center." + cm.options.ConfigCenter)
+	centerConfig := cm.v.Sub(string("config_center." + cm.options.ConfigCenter))
 	if centerConfig == nil {
 		return fmt.Errorf("config center [%s] not configured", cm.options.ConfigCenter)
 	}
 
-	return cm.ActivateConfigCenter(cm.options.ConfigCenter)
+	return cm.ActivateConfigCenter(string(cm.options.ConfigCenter))
 }
 
 func (cm *ConfigManager) RegisterAdapter(adapter ConfigCenter) {
@@ -156,9 +138,6 @@ func (cm *ConfigManager) fireReload() {
 	for name, reloader := range cm.reloaders {
 		go func(n string, r ConfigReloader) {
 			if err := r.ReloadConfig(newViper); err != nil {
-				cm.logger.Error("Failed to reload component",
-					zap.String("component", n),
-					zap.Error(err))
 			}
 		}(name, reloader)
 	}
@@ -179,9 +158,3 @@ func (cm *ConfigManager) GetViper() *viper.Viper {
 	defer cm.mu.RUnlock()
 	return cm.v
 }
-
-var ProviderSet = wire.NewSet(
-	wire.Struct(new(Options), "*"),
-	NewConfigManager,
-	wire.Bind(new(ConfigReloader), new(*ConfigManager)),
-)

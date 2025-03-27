@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"github.com/google/wire"
 	"github.com/natefinch/lumberjack"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -16,6 +15,12 @@ var (
 	globalLogger *zap.Logger
 	globalMu     sync.RWMutex
 )
+
+type Logger interface {
+	Error(msg string, fields ...zap.Field)
+	Info(msg string, fields ...zap.Field)
+	Debug(msg string, fields ...zap.Field)
+}
 
 type Option struct {
 	Level          string `mapstructure:"level"`
@@ -171,8 +176,6 @@ func SetGlobalLogger(l *zap.Logger) {
 	globalLogger = l
 }
 
-var _ config.Logger = (*Manager)(nil)
-
 func (m *Manager) Error(msg string, fields ...zap.Field) {
 	m.logger.Error(msg, fields...)
 }
@@ -184,8 +187,3 @@ func (m *Manager) Info(msg string, fields ...zap.Field) {
 func (m *Manager) Debug(msg string, fields ...zap.Field) {
 	m.logger.Debug(msg, fields...)
 }
-
-// Wire Provider Set
-var ProviderSet = wire.NewSet(
-	NewManager,
-)

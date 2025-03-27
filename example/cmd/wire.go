@@ -48,10 +48,5 @@ var (
 func CreateApp(configFile string) (*app.App, error) {
 	panic(wire.Build(
 		globalSet,
-		wire.Value(config.Options{
-			ConfigFile:   configFile,
-			ConfigCenter: "nacos",
-		}),
-		wire.Bind(new(config.Logger), new(*logger.Manager)),
 	))
 }

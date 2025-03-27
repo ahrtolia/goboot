@@ -11,13 +11,15 @@ import (
 	"goboot/pkg"
 	"goboot/pkg/config"
 	"goboot/pkg/gin"
+	"goboot/pkg/gorm"
 	"goboot/pkg/logger"
 )
 
 // Injectors from wire.go:
 
-func CreateApp(cf string) (*app.App, error) {
-	configManager := config.NewConfigManager()
+func CreateApp(configFile2 string) (*app.App, error) {
+	options := config.NewOptions()
+	configManager := config.InitConfigManager(options)
 	manager, err := logger.NewManager(configManager)
 	if err != nil {
 		return nil, err
@@ -30,13 +32,32 @@ func CreateApp(cf string) (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
-	appApp, err := app.New(cf, manager, server)
-	if err != nil {
-		return nil, err
+	appApp := &app.App{
+		Config: configManager,
+		Logger: manager,
+		Http:   server,
 	}
 	return appApp, nil
 }
 
 // wire.go:
 
-var providerSet = wire.NewSet(config.ProviderSet, logger.ProviderSet, gin.ProviderSet, app.ProviderSet)
+var (
+	configSet = wire.NewSet(config.ProviderSet, config.NacosProvider)
+
+	loggerSet = wire.NewSet(logger.ProviderSet)
+
+	httpSet = wire.NewSet(gin.ProviderSet)
+
+	dbSet = wire.NewSet(gorm.ProviderSet)
+
+	appSet = wire.NewSet(wire.Struct(new(app.App), "*"))
+
+	globalSet = wire.NewSet(
+		configSet,
+		loggerSet,
+		httpSet,
+		dbSet,
+		appSet,
+	)
+)

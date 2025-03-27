@@ -3,7 +3,6 @@ package config
 
 import (
 	"fmt"
-	"github.com/google/wire"
 	"strings"
 
 	"github.com/nacos-group/nacos-sdk-go/clients"
@@ -92,7 +91,3 @@ func mergeConfig(v *viper.Viper, content string) error {
 	}
 	return v.MergeConfigMap(temp.AllSettings())
 }
-
-var NacosProvider = wire.NewSet(
-	wire.Value(ConfigCenter(NewNacosAdapter())),
-)
