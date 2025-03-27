@@ -4,8 +4,9 @@ import (
 	"context"
 	"github.com/google/wire"
 	"go.uber.org/zap"
+	"goboot/pkg/config"
+	"goboot/pkg/gin"
 	"goboot/pkg/logger"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,46 +14,39 @@ import (
 )
 
 type App struct {
-	name       string
-	httpServer *http.Server
-	logger     *logger.Manager
-}
-
-type Option struct {
-}
-
-func NewOption() *Option {
-	return &Option{}
+	Config *config.ConfigManager
+	Logger *logger.Manager
+	Http   *gin.Server
 }
 
 func New(
-	name string,
-	loggerManager *logger.Manager,
-	httpServer *http.Server,
+	cfg *config.ConfigManager,
+	log *logger.Manager,
+	httpSrv *gin.Server,
 ) (*App, error) {
 	return &App{
-		name:       name,
-		httpServer: httpServer,
-		logger:     loggerManager,
+		Config: cfg,
+		Logger: log,
+		Http:   httpSrv,
 	}, nil
 }
 
 func (a *App) Start() error {
 
-	if a.httpServer != nil {
+	if a.Http.GetHttpServer() != nil {
 		go func() {
-			err := a.httpServer.ListenAndServe()
+			err := a.Http.GetHttpServer().ListenAndServe()
 			if err != nil {
-				a.logger.Logger().Fatal("http server start error", zap.Error(err))
+				a.Logger.Logger().Fatal("http server start error", zap.Error(err))
 			}
 		}()
-		a.logger.Logger().Info("http server start", zap.String("address:", a.httpServer.Addr))
+		a.Logger.Logger().Info("http server start", zap.String("address:", a.Http.GetHttpServer().Addr))
 	}
 
 	go func() {
 		for {
-			a.logger.Logger().Info("info")
-			a.logger.Logger().Debug("debug")
+			a.Logger.Logger().Info("info")
+			a.Logger.Logger().Debug("debug")
 			time.Sleep(2 * time.Second)
 		}
 	}()
@@ -67,10 +61,10 @@ func (a *App) AwaitSignal() {
 	select {
 	case s := <-c:
 
-		a.logger.Logger().Info("receive a signal", zap.String("signal", s.String()))
-		if a.httpServer != nil {
-			if err := a.httpServer.Shutdown(context.Background()); err != nil {
-				a.logger.Logger().Warn("stop http server error", zap.Error(err))
+		a.Logger.Logger().Info("receive a signal", zap.String("signal", s.String()))
+		if a.Http.GetHttpServer() != nil {
+			if err := a.Http.GetHttpServer().Shutdown(context.Background()); err != nil {
+				a.Logger.Logger().Warn("stop http server error", zap.Error(err))
 			}
 		}
 
@@ -78,4 +72,6 @@ func (a *App) AwaitSignal() {
 	}
 }
 
-var ProviderSet = wire.NewSet(New, NewOption)
+var ProviderSet = wire.NewSet(
+	wire.Struct(new(App), "*"), // 自动装配结构体字段
+)

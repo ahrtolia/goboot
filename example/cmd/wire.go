@@ -1,26 +1,57 @@
+// cmd/wire.go
 //go:build wireinject
 // +build wireinject
 
 package main
 
 import (
-	"github.com/google/wire"
 	app "goboot/pkg"
-	"goboot/pkg/config/nacos"
+	"goboot/pkg/config"
 	"goboot/pkg/gin"
 	"goboot/pkg/gorm"
 	"goboot/pkg/logger"
+
+	"github.com/google/wire"
 )
 
-var providerSet = wire.NewSet(
-	//config.ProviderSet,
-	nacos.ProviderSet,
-	logger.ProviderSet,
-	gin.ProviderSet,
-	app.ProviderSet,
-	gorm.ProviderSet,
+var (
+	configSet = wire.NewSet(
+		config.ProviderSet,
+		config.NacosProvider,
+	)
+
+	loggerSet = wire.NewSet(
+		logger.ProviderSet,
+	)
+
+	httpSet = wire.NewSet(
+		gin.ProviderSet,
+	)
+
+	dbSet = wire.NewSet(
+		gorm.ProviderSet,
+	)
+
+	appSet = wire.NewSet(
+		wire.Struct(new(app.App), "*"),
+	)
+
+	globalSet = wire.NewSet(
+		configSet,
+		loggerSet,
+		httpSet,
+		dbSet,
+		appSet,
+	)
 )
 
-func CreateApp(cf string) (*app.App, error) {
-	panic(wire.Build(providerSet))
+func CreateApp(configFile string) (*app.App, error) {
+	panic(wire.Build(
+		globalSet,
+		wire.Value(config.Options{
+			ConfigFile:   configFile,
+			ConfigCenter: "nacos",
+		}),
+		wire.Bind(new(config.Logger), new(*logger.Manager)),
+	))
 }

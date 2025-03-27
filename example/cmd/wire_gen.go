@@ -9,26 +9,27 @@ package main
 import (
 	"github.com/google/wire"
 	"goboot/pkg"
-	"goboot/pkg/config/nacos"
+	"goboot/pkg/config"
 	"goboot/pkg/gin"
-	"goboot/pkg/gorm"
 	"goboot/pkg/logger"
 )
 
 // Injectors from wire.go:
 
 func CreateApp(cf string) (*app.App, error) {
-	iConfigClient, err := nacos.NewNacosConfigClient(cf)
+	configManager := config.NewConfigManager()
+	manager, err := logger.NewManager(configManager)
 	if err != nil {
 		return nil, err
 	}
-	viper, err := nacos.MergeNacosConfig(cf, iConfigClient)
+	option, err := gin.NewOption(configManager)
 	if err != nil {
 		return nil, err
 	}
-	manager := logger.NewLoggerManager(viper)
-	option := gin.NewOptions(manager, viper)
-	server := gin.New(manager, option)
+	server, err := gin.NewServer(manager, configManager, option)
+	if err != nil {
+		return nil, err
+	}
 	appApp, err := app.New(cf, manager, server)
 	if err != nil {
 		return nil, err
@@ -38,4 +39,4 @@ func CreateApp(cf string) (*app.App, error) {
 
 // wire.go:
 
-var providerSet = wire.NewSet(nacos.ProviderSet, logger.ProviderSet, gin.ProviderSet, app.ProviderSet, gorm.ProviderSet)
+var providerSet = wire.NewSet(config.ProviderSet, logger.ProviderSet, gin.ProviderSet, app.ProviderSet)

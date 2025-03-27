@@ -1,6 +1,8 @@
 package main
 
-import "flag"
+import (
+	"flag"
+)
 
 var configFile = flag.String("c", "config.yaml", "config file")
 
