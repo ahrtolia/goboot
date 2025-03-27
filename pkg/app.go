@@ -33,15 +33,7 @@ func New(
 
 func (a *App) Start() error {
 
-	if a.Http.GetHttpServer() != nil {
-		go func() {
-			err := a.Http.GetHttpServer().ListenAndServe()
-			if err != nil {
-				a.Logger.Logger().Fatal("http server start error", zap.Error(err))
-			}
-		}()
-		a.Logger.Logger().Info("http server start", zap.String("address:", a.Http.GetHttpServer().Addr))
-	}
+	a.Logger.Logger().Info("App started successfully")
 
 	go func() {
 		for {
