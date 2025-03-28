@@ -18,7 +18,10 @@ import (
 	"goboot/pkg/config"
 )
 
-var promInitOnce sync.Once
+var (
+	promInitOnce sync.Once
+	promInstance *ginprom.Prometheus
+)
 
 type Option struct {
 	Port         int           `mapstructure:"port"`
@@ -107,18 +110,16 @@ func (s *Server) applyConfig(opt *Option) error {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	var p *ginprom.Prometheus
 	promInitOnce.Do(func() {
-		p = ginprom.New(
-			ginprom.Engine(router),
+		promInstance = ginprom.New(
 			ginprom.Subsystem("gin"),
 			ginprom.Path("/metrics"),
 		)
 	})
-	if p != nil {
-		router.Use(p.Instrument())
-	}
 
+	if promInstance != nil {
+		promInstance.Use(router) // 将 Prometheus 挂载到新的 router
+	}
 	// 注册pprof
 	pprof.Register(router)
 

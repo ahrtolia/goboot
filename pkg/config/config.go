@@ -159,7 +159,6 @@ func (cm *ConfigManager) fireReload() {
 		newViper.Set(k, v)
 	}
 
-	// ✅ 不替换 cm.v，而是 merge 到旧的 viper 上
 	_ = cm.v.MergeConfigMap(newViper.AllSettings())
 
 	for name, reloader := range cm.reloaders {
