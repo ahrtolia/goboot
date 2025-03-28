@@ -57,12 +57,17 @@ type ConfigManager struct {
 }
 
 func NewConfigManager(opt Options) *ConfigManager {
-	return &ConfigManager{
+
+	cm := &ConfigManager{
 		options:   opt,
 		v:         viper.New(),
 		reloaders: make(map[string]ConfigReloader),
 		adapters:  make(map[string]ConfigCenter),
 	}
+	_ = cm.initLocal(string(opt.ConfigFile)) // 从本地文件加载
+	_ = cm.initConfigCenter()                // 激活 Nacos 并 merge 配置
+
+	return cm
 }
 
 func (cm *ConfigManager) initLocal(configFile string) error {

@@ -32,7 +32,7 @@ func CreateApp(configFile2 string) (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
-	appApp, err := app.New(configManager, zapLogger, server)
+	appApp, err := app.New(configManager, server)
 	if err != nil {
 		return nil, err
 	}

@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 	"goboot/pkg/config"
 	"goboot/pkg/gin"
+	"goboot/pkg/logger"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,29 +15,28 @@ import (
 
 type App struct {
 	Config *config.ConfigManager
-	logger *zap.Logger
 	Http   *gin.Server
 }
 
 func New(
 	cfg *config.ConfigManager,
-	logger *zap.Logger,
 	httpSrv *gin.Server,
 ) (*App, error) {
 	return &App{
 		Config: cfg,
-		logger: logger,
 		Http:   httpSrv,
 	}, nil
 }
 
 func (a *App) Start() error {
 
-	a.logger.Info("HTTP server listening on", zap.String("addr", a.Http.GetHttpServer().Addr))
+	logger.Info("HTTP server listening on", zap.String("addr", a.Http.GetHttpServer().Addr))
 
 	go func() {
 		for {
-			a.logger.Info("server is running...")
+			logger.Debug("debug: server is running...")
+			logger.Info("debug: server is running...")
+			logger.Warn("debug: server is running...")
 			time.Sleep(2 * time.Second)
 		}
 	}()
@@ -50,10 +50,10 @@ func (a *App) AwaitSignal() {
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 	select {
 	case s := <-c:
-		a.logger.Info("starting graceful shutdown...", zap.String("signal", s.String()))
+		logger.Info("starting graceful shutdown...", zap.String("signal", s.String()))
 		if a.Http.GetHttpServer() != nil {
 			if err := a.Http.GetHttpServer().Shutdown(context.Background()); err != nil {
-				a.logger.Warn("stop http server error", zap.Error(err))
+				logger.Warn("stop http server error", zap.Error(err))
 			}
 		}
 

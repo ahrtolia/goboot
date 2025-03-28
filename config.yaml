@@ -7,7 +7,7 @@ nacos:
 
 # HTTP 服务器配置
 http:
-  port: 8082           # 端口号
+  port: 8083           # 端口号
   addr: 0.0.0.0        # 地址
   log_format: json     # 日志格式，可选 "json" 或其他
   debug: false         # 是否启用调试模式

@@ -18,6 +18,8 @@ import (
 	"goboot/pkg/config"
 )
 
+var promInitOnce sync.Once
+
 type Option struct {
 	Port         int           `mapstructure:"port"`
 	Addr         string        `mapstructure:"addr"`
@@ -88,6 +90,8 @@ func (s *Server) applyConfig(opt *Option) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	gin.SetMode(opt.GinMode)
+
 	// 创建新router实例
 	router := gin.New()
 	router.Use(gin.Recovery())
@@ -103,13 +107,17 @@ func (s *Server) applyConfig(opt *Option) error {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// 添加Prometheus监控
-	p := ginprom.New(
-		ginprom.Engine(router),
-		ginprom.Subsystem("gin"),
-		ginprom.Path("/metrics"),
-	)
-	router.Use(p.Instrument())
+	var p *ginprom.Prometheus
+	promInitOnce.Do(func() {
+		p = ginprom.New(
+			ginprom.Engine(router),
+			ginprom.Subsystem("gin"),
+			ginprom.Path("/metrics"),
+		)
+	})
+	if p != nil {
+		router.Use(p.Instrument())
+	}
 
 	// 注册pprof
 	pprof.Register(router)
