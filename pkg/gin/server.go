@@ -7,9 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"goboot/pkg/config"
-	"goboot/pkg/logger"
-
 	"github.com/Depado/ginprom"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
@@ -18,6 +15,7 @@ import (
 	"github.com/google/wire"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"goboot/pkg/config"
 )
 
 type Option struct {
@@ -37,7 +35,7 @@ type Server struct {
 	server     *http.Server
 	router     *gin.Engine
 	currentCfg *Option
-	logger     *logger.Manager
+	logger     *zap.Logger
 	cleanup    func() // 旧服务器清理函数
 }
 
@@ -65,7 +63,7 @@ func NewOption(cfg *config.ConfigManager) (*Option, error) {
 }
 
 func NewServer(
-	logger *logger.Manager,
+	logger *zap.Logger,
 	cfg *config.ConfigManager,
 	opt *Option,
 ) (*Server, error) {
@@ -93,7 +91,7 @@ func (s *Server) applyConfig(opt *Option) error {
 	// 创建新router实例
 	router := gin.New()
 	router.Use(gin.Recovery())
-	router.Use(ginzap.RecoveryWithZap(s.logger.Logger(), true))
+	router.Use(ginzap.RecoveryWithZap(s.logger, true))
 
 	// 配置中间件
 	router.Use(cors.New(cors.Config{
@@ -128,9 +126,9 @@ func (s *Server) applyConfig(opt *Option) error {
 
 	// 启动新服务器
 	go func() {
-		s.logger.Logger().Info("Starting HTTP server", zap.String("addr", newServer.Addr))
+		s.logger.Info("Starting HTTP server", zap.String("addr", newServer.Addr))
 		if err := newServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			s.logger.Logger().Fatal("HTTP server failed to start", zap.Error(err))
+			s.logger.Fatal("HTTP server failed to start", zap.Error(err))
 		}
 	}()
 
@@ -156,7 +154,7 @@ func (s *Server) ReloadConfig(v *viper.Viper) error {
 
 	// 比较配置差异
 	if s.configEqual(newOpt) {
-		s.logger.Logger().Debug("HTTP config unchanged, skip reload")
+		s.logger.Debug("HTTP config unchanged, skip reload")
 		return nil
 	}
 
@@ -180,9 +178,9 @@ func (s *Server) gracefulShutdown(server *http.Server) {
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		s.logger.Logger().Error("HTTP server shutdown error", zap.Error(err))
+		s.logger.Error("HTTP server shutdown error", zap.Error(err))
 	} else {
-		s.logger.Logger().Info("HTTP server stopped gracefully")
+		s.logger.Info("HTTP server stopped gracefully")
 	}
 }
 

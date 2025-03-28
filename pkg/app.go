@@ -6,7 +6,6 @@ import (
 	"go.uber.org/zap"
 	"goboot/pkg/config"
 	"goboot/pkg/gin"
-	"goboot/pkg/logger"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,30 +14,29 @@ import (
 
 type App struct {
 	Config *config.ConfigManager
-	Logger *logger.Manager
+	logger *zap.Logger
 	Http   *gin.Server
 }
 
 func New(
 	cfg *config.ConfigManager,
-	log *logger.Manager,
+	logger *zap.Logger,
 	httpSrv *gin.Server,
 ) (*App, error) {
 	return &App{
 		Config: cfg,
-		Logger: log,
+		logger: logger,
 		Http:   httpSrv,
 	}, nil
 }
 
 func (a *App) Start() error {
 
-	a.Logger.Logger().Info("App started successfully")
+	a.logger.Info("HTTP server listening on", zap.String("addr", a.Http.GetHttpServer().Addr))
 
 	go func() {
 		for {
-			a.Logger.Logger().Info("info")
-			a.Logger.Logger().Debug("debug")
+			a.logger.Info("server is running...")
 			time.Sleep(2 * time.Second)
 		}
 	}()
@@ -52,11 +50,10 @@ func (a *App) AwaitSignal() {
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 	select {
 	case s := <-c:
-
-		a.Logger.Logger().Info("receive a signal", zap.String("signal", s.String()))
+		a.logger.Info("starting graceful shutdown...", zap.String("signal", s.String()))
 		if a.Http.GetHttpServer() != nil {
 			if err := a.Http.GetHttpServer().Shutdown(context.Background()); err != nil {
-				a.Logger.Logger().Warn("stop http server error", zap.Error(err))
+				a.logger.Warn("stop http server error", zap.Error(err))
 			}
 		}
 
@@ -65,5 +62,5 @@ func (a *App) AwaitSignal() {
 }
 
 var ProviderSet = wire.NewSet(
-	wire.Struct(new(App), "*"), // 自动装配结构体字段
+	New,
 )

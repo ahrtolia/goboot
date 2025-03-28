@@ -33,7 +33,7 @@ var (
 	)
 
 	appSet = wire.NewSet(
-		wire.Struct(new(app.App), "*"),
+		app.ProviderSet,
 	)
 
 	globalSet = wire.NewSet(

@@ -16,12 +16,6 @@ var (
 	globalMu     sync.RWMutex
 )
 
-type Logger interface {
-	Error(msg string, fields ...zap.Field)
-	Info(msg string, fields ...zap.Field)
-	Debug(msg string, fields ...zap.Field)
-}
-
 type Option struct {
 	Level          string `mapstructure:"level"`
 	Development    bool   `mapstructure:"development"`
@@ -33,64 +27,30 @@ type Option struct {
 	FileEnabled    bool   `mapstructure:"file_enabled"`
 }
 
-type Manager struct {
-	mu      sync.RWMutex
-	option  *Option
-	logger  *zap.Logger
-	cleanup func() // 旧日志清理函数
-}
+func NewLogger(cfg *config.ConfigManager) (*zap.Logger, error) {
+	opt := loadOptions(cfg.GetViper())
 
-func NewManager(cfg *config.ConfigManager) (*Manager, error) {
-	m := &Manager{}
-
-	// 初始加载配置
-	if err := m.ReloadConfig(cfg.GetViper()); err != nil {
-		return nil, err
-	}
-
-	// 注册配置监听
-	if err := cfg.RegisterReloader("logger", m); err != nil {
-		return nil, err
-	}
-
-	// 设置全局访问
-	SetGlobalLogger(m.logger)
-
-	return m, nil
-}
-
-func (m *Manager) ReloadConfig(v *viper.Viper) error {
-	newOpt := loadOptions(v)
-
-	// 创建新logger
-	newLogger, cleanup, err := createLogger(newOpt)
+	logger, cleanup, err := createLogger(opt)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// 替换旧实例
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	defer cleanup()
 
-	// 关闭旧logger
-	if m.cleanup != nil {
-		go m.cleanup()
-	}
+	SetGlobalLogger(logger)
 
-	m.option = newOpt
-	m.logger = newLogger
-	m.cleanup = cleanup
+	// 注册动态配置监听
+	_ = cfg.RegisterReloader("logger", config.ConfigReloaderFunc(func(v *viper.Viper) error {
+		newOpt := loadOptions(v)
+		newLogger, _, err := createLogger(newOpt)
+		if err != nil {
+			return err
+		}
+		SetGlobalLogger(newLogger)
+		return nil
+	}))
 
-	// 更新全局logger
-	SetGlobalLogger(newLogger)
-
-	return nil
-}
-
-func (m *Manager) Logger() *zap.Logger {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.logger
+	return logger, nil
 }
 
 func loadOptions(v *viper.Viper) *Option {
@@ -98,7 +58,6 @@ func loadOptions(v *viper.Viper) *Option {
 		Level:       "info",
 		Development: false,
 	}
-
 	sub := v.Sub("logger")
 	if sub != nil {
 		_ = sub.Unmarshal(opt)
@@ -107,20 +66,24 @@ func loadOptions(v *viper.Viper) *Option {
 }
 
 func createLogger(opt *Option) (*zap.Logger, func(), error) {
-	// 创建核心配置...
-	// （保持原有create函数逻辑，返回logger和清理函数）
-
-	// 示例实现：
 	atomicLevel := zap.NewAtomicLevel()
 	_ = atomicLevel.UnmarshalText([]byte(opt.Level))
 
 	encoderConfig := zapcore.EncoderConfig{
-		// 保持原有encoder配置
+		TimeKey:        "time",
+		LevelKey:       "level",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		MessageKey:     "msg",
+		StacktraceKey:  "stacktrace",
+		EncodeLevel:    zapcore.CapitalLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.StringDurationEncoder,
+		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 
 	cores := make([]zapcore.Core, 0)
 
-	// 控制台输出
 	if opt.ConsoleEnabled {
 		consoleCore := zapcore.NewCore(
 			zapcore.NewConsoleEncoder(encoderConfig),
@@ -130,7 +93,6 @@ func createLogger(opt *Option) (*zap.Logger, func(), error) {
 		cores = append(cores, consoleCore)
 	}
 
-	// 文件输出
 	var fileSyncer zapcore.WriteSyncer
 	if opt.FileEnabled {
 		lj := &lumberjack.Logger{
@@ -163,7 +125,6 @@ func createLogger(opt *Option) (*zap.Logger, func(), error) {
 	return logger, cleanup, nil
 }
 
-// 全局访问方法
 func L() *zap.Logger {
 	globalMu.RLock()
 	defer globalMu.RUnlock()
@@ -174,16 +135,4 @@ func SetGlobalLogger(l *zap.Logger) {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 	globalLogger = l
-}
-
-func (m *Manager) Error(msg string, fields ...zap.Field) {
-	m.logger.Error(msg, fields...)
-}
-
-func (m *Manager) Info(msg string, fields ...zap.Field) {
-	m.logger.Info(msg, fields...)
-}
-
-func (m *Manager) Debug(msg string, fields ...zap.Field) {
-	m.logger.Debug(msg, fields...)
 }

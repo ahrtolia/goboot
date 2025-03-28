@@ -26,6 +26,12 @@ type ConfigCenter interface {
 	Close()
 }
 
+type ConfigReloaderFunc func(*viper.Viper) error
+
+func (f ConfigReloaderFunc) ReloadConfig(v *viper.Viper) error {
+	return f(v)
+}
+
 type ConfigFile string
 type ConfigCenterType string
 

@@ -20,7 +20,7 @@ import (
 func CreateApp(configFile2 string) (*app.App, error) {
 	options := config.NewOptions()
 	configManager := config.InitConfigManager(options)
-	manager, err := logger.NewManager(configManager)
+	zapLogger, err := logger.NewLogger(configManager)
 	if err != nil {
 		return nil, err
 	}
@@ -28,14 +28,13 @@ func CreateApp(configFile2 string) (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
-	server, err := gin.NewServer(manager, configManager, option)
+	server, err := gin.NewServer(zapLogger, configManager, option)
 	if err != nil {
 		return nil, err
 	}
-	appApp := &app.App{
-		Config: configManager,
-		Logger: manager,
-		Http:   server,
+	appApp, err := app.New(configManager, zapLogger, server)
+	if err != nil {
+		return nil, err
 	}
 	return appApp, nil
 }
@@ -51,7 +50,7 @@ var (
 
 	dbSet = wire.NewSet(gorm.ProviderSet)
 
-	appSet = wire.NewSet(wire.Struct(new(app.App), "*"))
+	appSet = wire.NewSet(app.ProviderSet)
 
 	globalSet = wire.NewSet(
 		configSet,
