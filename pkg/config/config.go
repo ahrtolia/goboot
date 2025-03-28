@@ -1,4 +1,3 @@
-// pkg/config/config.go
 package config
 
 import (
@@ -64,16 +63,30 @@ func NewConfigManager(opt Options) *ConfigManager {
 		reloaders: make(map[string]ConfigReloader),
 		adapters:  make(map[string]ConfigCenter),
 	}
-	_ = cm.initLocal(string(opt.ConfigFile)) // 从本地文件加载
-	_ = cm.initConfigCenter()                // 激活 Nacos 并 merge 配置
+
+	// 注册 Nacos 适配器
+	cm.RegisterAdapter(NewNacosAdapter())
+
+	localConfigErr := cm.initLocal(string(opt.ConfigFile)) // 从本地文件加载
+	if localConfigErr != nil {
+		fmt.Println(localConfigErr)
+	}
+
+	configCenterErr := cm.initConfigCenter() // 激活 Nacos 并 merge 配置
+	if configCenterErr != nil {
+		fmt.Println(configCenterErr)
+	}
 
 	return cm
 }
 
 func (cm *ConfigManager) initLocal(configFile string) error {
 	cm.v.SetConfigFile(configFile)
-	if err := cm.v.ReadInConfig(); err != nil {
-		return fmt.Errorf("failed to read local config: %w", err)
+
+	err := cm.v.ReadInConfig()
+	if err != nil {
+		// 改成 warn 模式，允许 fallback 到远程配置
+		fmt.Println("[Config] Failed to load local config:", err)
 	}
 
 	cm.v.WatchConfig()
@@ -138,17 +151,24 @@ func (cm *ConfigManager) RegisterReloader(name string, reloader ConfigReloader) 
 
 func (cm *ConfigManager) fireReload() {
 	cm.mu.RLock()
-	defer cm.mu.RUnlock()
-
 	currentConfig := cm.v.AllSettings()
+	cm.mu.RUnlock()
+
 	newViper := viper.New()
 	for k, v := range currentConfig {
 		newViper.Set(k, v)
 	}
 
+	cm.mu.Lock()
+	cm.v = newViper
+	cm.mu.Unlock()
+
 	for name, reloader := range cm.reloaders {
 		go func(n string, r ConfigReloader) {
 			if err := r.ReloadConfig(newViper); err != nil {
+				fmt.Printf("[Config] Reloader [%s] failed: %v\n", n, err)
+			} else {
+				fmt.Printf("[Config] Reloader [%s] success\n", n)
 			}
 		}(name, reloader)
 	}
@@ -158,9 +178,7 @@ func (cm *ConfigManager) ReloadConfig(newViper *viper.Viper) error {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	if err := cm.v.MergeConfigMap(newViper.AllSettings()); err != nil {
-		return fmt.Errorf("failed to merge config: %w", err)
-	}
+	cm.v = newViper
 	return nil
 }
 

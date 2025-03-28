@@ -1,8 +1,15 @@
 app:
   name: "goboot"
 
-nacos:
-  namespace: "b652ebeb-fc2c-4f5f-8398-316914b0be27"
+config_center:
+  nacos:
+    host: 127.0.0.1
+    port: 8848
+    namespace: b652ebeb-fc2c-4f5f-8398-316914b0be27
+    data_id: goboot
+    group: DEFAULT_GROUP
+    log_dir: ./logs/nacos
+    cache_dir: ./cache/nacos
 
 
 # HTTP 服务器配置
@@ -37,7 +44,7 @@ db:
   db_driver: mysql             # 数据库驱动类型，可选 "mysql", "postgresql"
 
 logger:
-  level: debug            # 日志级别（可选值: debug, info, warn, error）。默认: info
+  level: info            # 日志级别（可选值: debug, info, warn, error）。默认: info
   development: false     # 是否是开发模式。默认: false
   # 文件相关配置
   file_name: app.log      # 日志文件名，默认: app.log
