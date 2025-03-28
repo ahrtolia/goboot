@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"github.com/natefinch/lumberjack"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -12,8 +13,9 @@ import (
 )
 
 var (
-	globalLogger *zap.Logger
-	globalMu     sync.RWMutex
+	globalLogger  *zap.Logger
+	globalMu      sync.RWMutex
+	globalCleanup func()
 )
 
 type Option struct {
@@ -35,18 +37,19 @@ func NewLogger(cfg *config.ConfigManager) (*zap.Logger, error) {
 		return nil, err
 	}
 
-	defer cleanup()
-
-	SetGlobalLogger(logger)
+	SetGlobalLogger(logger, cleanup)
+	zap.ReplaceGlobals(logger)
 
 	// 注册动态配置监听
 	_ = cfg.RegisterReloader("logger", config.ConfigReloaderFunc(func(v *viper.Viper) error {
 		newOpt := loadOptions(v)
-		newLogger, _, err := createLogger(newOpt)
+		newLogger, newCleanup, err := createLogger(newOpt)
 		if err != nil {
-			return err
+			fmt.Printf("failed to create new logger: %v\n", err)
 		}
-		SetGlobalLogger(newLogger)
+
+		SetGlobalLogger(newLogger, newCleanup)
+		zap.ReplaceGlobals(newLogger)
 		return nil
 	}))
 
@@ -58,10 +61,7 @@ func loadOptions(v *viper.Viper) *Option {
 		Level:       "info",
 		Development: false,
 	}
-	sub := v.Sub("logger")
-	if sub != nil {
-		_ = sub.Unmarshal(opt)
-	}
+	_ = v.UnmarshalKey("logger", opt)
 	return opt
 }
 
@@ -131,10 +131,17 @@ func L() *zap.Logger {
 	return globalLogger
 }
 
-func SetGlobalLogger(l *zap.Logger) {
+func SetGlobalLogger(l *zap.Logger, cleanup func()) {
 	globalMu.Lock()
 	defer globalMu.Unlock()
+
+	// 先关闭旧的
+	if globalCleanup != nil {
+		globalCleanup()
+	}
+
 	globalLogger = l
+	globalCleanup = cleanup
 }
 
 func Debug(msg string, fields ...zap.Field) {

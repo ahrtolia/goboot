@@ -94,6 +94,11 @@ func (n *nacosAdapter) Watch(v *viper.Viper, onChange func()) error {
 		OnChange: func(_, _, _, data string) {
 			fmt.Println("[Nacos] Config changed, reloading...")
 
+			if strings.TrimSpace(data) == "" {
+				fmt.Println("[Nacos] Empty config received, skipping reload.")
+				return
+			}
+
 			temp := viper.New()
 			temp.SetConfigType("yaml")
 			if err := temp.ReadConfig(strings.NewReader(data)); err != nil {
@@ -124,5 +129,16 @@ func mergeConfig(v *viper.Viper, content string) error {
 	if err := temp.ReadConfig(strings.NewReader(content)); err != nil {
 		return fmt.Errorf("failed to parse config: %w", err)
 	}
-	return v.MergeConfigMap(temp.AllSettings())
+
+	// 强制清除旧配置（viper 不支持直接清空，只能逐个删）
+	for k := range v.AllSettings() {
+		v.Set(k, nil)
+	}
+
+	// 覆盖所有字段
+	for k, val := range temp.AllSettings() {
+		v.Set(k, val)
+	}
+
+	return nil
 }

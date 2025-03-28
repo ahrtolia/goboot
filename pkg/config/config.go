@@ -159,13 +159,12 @@ func (cm *ConfigManager) fireReload() {
 		newViper.Set(k, v)
 	}
 
-	cm.mu.Lock()
-	cm.v = newViper
-	cm.mu.Unlock()
+	// ✅ 不替换 cm.v，而是 merge 到旧的 viper 上
+	_ = cm.v.MergeConfigMap(newViper.AllSettings())
 
 	for name, reloader := range cm.reloaders {
 		go func(n string, r ConfigReloader) {
-			if err := r.ReloadConfig(newViper); err != nil {
+			if err := r.ReloadConfig(cm.v); err != nil {
 				fmt.Printf("[Config] Reloader [%s] failed: %v\n", n, err)
 			} else {
 				fmt.Printf("[Config] Reloader [%s] success\n", n)
