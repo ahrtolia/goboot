@@ -2,11 +2,11 @@ package app
 
 import (
 	"context"
+	"github.com/ahrtolia/goboot/pkg/config"
+	"github.com/ahrtolia/goboot/pkg/gin"
+	"github.com/ahrtolia/goboot/pkg/logger"
 	"github.com/google/wire"
 	"go.uber.org/zap"
-	"goboot/pkg/config"
-	"goboot/pkg/gin"
-	"goboot/pkg/logger"
 	"os"
 	"os/signal"
 	"syscall"

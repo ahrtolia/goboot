@@ -2,11 +2,11 @@ package logger
 
 import (
 	"fmt"
+	"github.com/ahrtolia/goboot/pkg/config"
 	"github.com/natefinch/lumberjack"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"goboot/pkg/config"
 	"io"
 	"os"
 	"sync"

@@ -3,6 +3,7 @@ package gin
 import (
 	"context"
 	"fmt"
+	"github.com/ahrtolia/goboot/pkg/config"
 	"net/http"
 	"sync"
 	"time"
@@ -15,7 +16,6 @@ import (
 	"github.com/google/wire"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"goboot/pkg/config"
 )
 
 var (
