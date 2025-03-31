@@ -1,4 +1,4 @@
-module goboot
+module github.com/ahrtolia/goboot
 
 go 1.23.0
 
