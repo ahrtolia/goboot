@@ -1,43 +1,74 @@
 package logger
 
 import (
+	"fmt"
+	"github.com/ahrtolia/goboot/pkg/config"
 	"github.com/natefinch/lumberjack"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"io"
 	"os"
+	"sync"
 )
 
-// Option 存放常见的日志配置参数
+var (
+	globalLogger  *zap.Logger
+	globalMu      sync.RWMutex
+	globalCleanup func()
+)
 
 type Option struct {
-	Level          string `json:"level,omitempty" mapstructure:"level" yaml:"level"`
-	Development    bool   `json:"development,omitempty" mapstructure:"development" yaml:"development"`
-	FileName       string `json:"file_name,omitempty" mapstructure:"file_name" yaml:"file_name"`
-	MaxSizeMB      int    `json:"max_size_mb,omitempty" mapstructure:"max_size_mb" yaml:"max_size_mb"`
-	MaxAgeDays     int    `json:"max_age_days,omitempty" mapstructure:"max_age_days" yaml:"max_age_days"`
-	Compress       bool   `json:"compress,omitempty" mapstructure:"compress" yaml:"compress"`
-	ConsoleEnabled bool   `json:"console_enabled,omitempty" mapstructure:"console_enabled" yaml:"console_enabled"`
-	FileEnabled    bool   `json:"file_enabled,omitempty" mapstructure:"file_enabled" yaml:"file_enabled"`
+	Level          string `mapstructure:"level"`
+	Development    bool   `mapstructure:"development"`
+	FileName       string `mapstructure:"file_name"`
+	MaxSizeMB      int    `mapstructure:"max_size_mb"`
+	MaxAgeDays     int    `mapstructure:"max_age_days"`
+	Compress       bool   `mapstructure:"compress"`
+	ConsoleEnabled bool   `mapstructure:"console_enabled"`
+	FileEnabled    bool   `mapstructure:"file_enabled"`
 }
 
-// create 根据配置生成具体的 zap.Logger
+func NewLogger(cfg *config.ConfigManager) (*zap.Logger, error) {
+	opt := loadOptions(cfg.GetViper())
 
-func create(option *Option) *zap.Logger {
-
-	atomicLevel := zap.NewAtomicLevel()
-
-	switch option.Level {
-	case "debug":
-		atomicLevel.SetLevel(zap.DebugLevel)
-	case "info":
-		atomicLevel.SetLevel(zap.InfoLevel)
-	case "warn":
-		atomicLevel.SetLevel(zap.WarnLevel)
-	case "error":
-		atomicLevel.SetLevel(zap.ErrorLevel)
-	default:
-		atomicLevel.SetLevel(zap.InfoLevel)
+	logger, cleanup, err := createLogger(opt)
+	if err != nil {
+		return nil, err
 	}
+
+	SetGlobalLogger(logger, cleanup)
+	zap.ReplaceGlobals(logger)
+
+	// 注册动态配置监听
+	_ = cfg.RegisterReloader("logger", config.ConfigReloaderFunc(func(v *viper.Viper) error {
+		newOpt := loadOptions(v)
+		newLogger, newCleanup, err := createLogger(newOpt)
+		if err != nil {
+			fmt.Printf("failed to create new logger: %v\n", err)
+		}
+
+		SetGlobalLogger(newLogger, newCleanup)
+		zap.ReplaceGlobals(newLogger)
+		return nil
+	}))
+
+	return logger, nil
+}
+
+func loadOptions(v *viper.Viper) *Option {
+	opt := &Option{
+		Level:       "info",
+		Development: false,
+	}
+	_ = v.UnmarshalKey("logger", opt)
+	return opt
+}
+
+func createLogger(opt *Option) (*zap.Logger, func(), error) {
+	atomicLevel := zap.NewAtomicLevel()
+	_ = atomicLevel.UnmarshalText([]byte(opt.Level))
+
 	encoderConfig := zapcore.EncoderConfig{
 		TimeKey:        "time",
 		LevelKey:       "level",
@@ -45,40 +76,34 @@ func create(option *Option) *zap.Logger {
 		CallerKey:      "caller",
 		MessageKey:     "msg",
 		StacktraceKey:  "stacktrace",
-		LineEnding:     zapcore.DefaultLineEnding,
 		EncodeLevel:    zapcore.CapitalLevelEncoder,
-		EncodeTime:     zapcore.TimeEncoderOfLayout("2006-01-02 15:04:05.000"),
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
 		EncodeDuration: zapcore.StringDurationEncoder,
 		EncodeCaller:   zapcore.ShortCallerEncoder,
 	}
 
-	var cores []zapcore.Core
+	cores := make([]zapcore.Core, 0)
 
-	if option.ConsoleEnabled {
-		consoleEncoder := zapcore.NewConsoleEncoder(encoderConfig)
+	if opt.ConsoleEnabled {
 		consoleCore := zapcore.NewCore(
-			consoleEncoder,
-			zapcore.AddSync(os.Stdout),
+			zapcore.NewConsoleEncoder(encoderConfig),
+			zapcore.Lock(os.Stdout),
 			atomicLevel,
 		)
 		cores = append(cores, consoleCore)
 	}
 
-	if option.FileEnabled {
-		fileName := option.FileName
-		if fileName == "" {
-			fileName = "app.log"
+	var fileSyncer zapcore.WriteSyncer
+	if opt.FileEnabled {
+		lj := &lumberjack.Logger{
+			Filename: opt.FileName,
+			MaxSize:  opt.MaxSizeMB,
+			MaxAge:   opt.MaxAgeDays,
+			Compress: opt.Compress,
 		}
-		fileSyncer := zapcore.AddSync(&lumberjack.Logger{
-			Filename:   fileName,
-			MaxSize:    option.MaxSizeMB,
-			MaxAge:     option.MaxAgeDays,
-			Compress:   option.Compress,
-			MaxBackups: 0,
-		})
-		jsonEncoder := zapcore.NewJSONEncoder(encoderConfig)
+		fileSyncer = zapcore.AddSync(lj)
 		fileCore := zapcore.NewCore(
-			jsonEncoder,
+			zapcore.NewJSONEncoder(encoderConfig),
 			fileSyncer,
 			atomicLevel,
 		)
@@ -88,5 +113,49 @@ func create(option *Option) *zap.Logger {
 	core := zapcore.NewTee(cores...)
 	logger := zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
 
-	return logger
+	cleanup := func() {
+		_ = logger.Sync()
+		if fileSyncer != nil {
+			if closer, ok := fileSyncer.(io.Closer); ok {
+				_ = closer.Close()
+			}
+		}
+	}
+
+	return logger, cleanup, nil
+}
+
+func L() *zap.Logger {
+	globalMu.RLock()
+	defer globalMu.RUnlock()
+	return globalLogger
+}
+
+func SetGlobalLogger(l *zap.Logger, cleanup func()) {
+	globalMu.Lock()
+	defer globalMu.Unlock()
+
+	// 先关闭旧的
+	if globalCleanup != nil {
+		globalCleanup()
+	}
+
+	globalLogger = l
+	globalCleanup = cleanup
+}
+
+func Debug(msg string, fields ...zap.Field) {
+	L().Debug(msg, fields...)
+}
+
+func Info(msg string, fields ...zap.Field) {
+	L().Info(msg, fields...)
+}
+
+func Warn(msg string, fields ...zap.Field) {
+	L().Warn(msg, fields...)
+}
+
+func Error(msg string, fields ...zap.Field) {
+	L().Error(msg, fields...)
 }
