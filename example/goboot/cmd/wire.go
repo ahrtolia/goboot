@@ -5,11 +5,11 @@
 package main
 
 import (
-	app "goboot/pkg"
-	"goboot/pkg/config"
-	"goboot/pkg/gin"
-	"goboot/pkg/gorm"
-	"goboot/pkg/logger"
+	app "github.com/ahrtolia/goboot/pkg"
+	"github.com/ahrtolia/goboot/pkg/config"
+	"github.com/ahrtolia/goboot/pkg/gin"
+	"github.com/ahrtolia/goboot/pkg/gorm"
+	"github.com/ahrtolia/goboot/pkg/logger"
 
 	"github.com/google/wire"
 )

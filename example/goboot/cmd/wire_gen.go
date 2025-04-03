@@ -7,7 +7,7 @@
 package main
 
 import (
-	app "github.com/ahrtolia/goboot/pkg"
+	"github.com/ahrtolia/goboot/pkg"
 	"github.com/ahrtolia/goboot/pkg/config"
 	"github.com/ahrtolia/goboot/pkg/gin"
 	"github.com/ahrtolia/goboot/pkg/gorm"
