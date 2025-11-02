@@ -54,3 +54,5 @@ logger:
   # 输出相关配置
   console_enabled: true   # 是否启用控制台输出。默认: true
   file_enabled: true      # 是否启用文件输出。默认: true
+
+  # 测试内容
