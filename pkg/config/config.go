@@ -39,9 +39,12 @@ type Options struct {
 	ConfigCenter ConfigCenterType
 }
 
-func NewOptions() Options {
+func NewOptions(configFile string) Options {
+	if configFile == "" {
+		configFile = "config.yaml"
+	}
 	return Options{
-		ConfigFile:   ConfigFile("config.yaml"), // 你可以改成读取 ENV 或默认值
+		ConfigFile:   ConfigFile(configFile), // 你可以改成读取 ENV 或默认值
 		ConfigCenter: ConfigCenterType("nacos"),
 	}
 }
@@ -98,12 +101,18 @@ func (cm *ConfigManager) initLocal(configFile string) error {
 }
 
 func (cm *ConfigManager) initConfigCenter() error {
-	centerConfig := cm.v.Sub(string("config_center." + cm.options.ConfigCenter))
-	if centerConfig == nil {
-		return fmt.Errorf("config center [%s] not configured", cm.options.ConfigCenter)
+	if cm.options.ConfigCenter != "" {
+		centerConfig := cm.v.Sub(string("config_center." + cm.options.ConfigCenter))
+		if centerConfig == nil {
+			return nil
+		}
+		return cm.ActivateConfigCenter(string(cm.options.ConfigCenter))
 	}
 
-	return cm.ActivateConfigCenter(string(cm.options.ConfigCenter))
+	if cm.v.Sub("config_center.nacos") != nil {
+		return cm.ActivateConfigCenter("nacos")
+	}
+	return nil
 }
 
 func (cm *ConfigManager) RegisterAdapter(adapter ConfigCenter) {
@@ -151,19 +160,16 @@ func (cm *ConfigManager) RegisterReloader(name string, reloader ConfigReloader) 
 
 func (cm *ConfigManager) fireReload() {
 	cm.mu.RLock()
-	currentConfig := cm.v.AllSettings()
+	currentConfig := cloneSettings(cm.v.AllSettings())
 	cm.mu.RUnlock()
-
-	newViper := viper.New()
-	for k, v := range currentConfig {
-		newViper.Set(k, v)
-	}
-
-	_ = cm.v.MergeConfigMap(newViper.AllSettings())
 
 	for name, reloader := range cm.reloaders {
 		go func(n string, r ConfigReloader) {
-			if err := r.ReloadConfig(cm.v); err != nil {
+			newViper := viper.New()
+			for k, v := range currentConfig {
+				newViper.Set(k, v)
+			}
+			if err := r.ReloadConfig(newViper); err != nil {
 				fmt.Printf("[Config] Reloader [%s] failed: %v\n", n, err)
 			} else {
 				fmt.Printf("[Config] Reloader [%s] success\n", n)
@@ -184,4 +190,27 @@ func (cm *ConfigManager) GetViper() *viper.Viper {
 	cm.mu.RLock()
 	defer cm.mu.RUnlock()
 	return cm.v
+}
+
+func cloneSettings(in map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{}, len(in))
+	for k, v := range in {
+		out[k] = cloneValue(v)
+	}
+	return out
+}
+
+func cloneValue(v interface{}) interface{} {
+	switch t := v.(type) {
+	case map[string]interface{}:
+		return cloneSettings(t)
+	case []interface{}:
+		cp := make([]interface{}, len(t))
+		for i, item := range t {
+			cp[i] = cloneValue(item)
+		}
+		return cp
+	default:
+		return v
+	}
 }

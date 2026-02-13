@@ -2,14 +2,14 @@ app:
   name: "goboot"
 
 config_center:
-  nacos:
-    host: 127.0.0.1
-    port: 8848
-    namespace: b652ebeb-fc2c-4f5f-8398-316914b0be27
-    data_id: goboot
-    group: DEFAULT_GROUP
-    log_dir: ./logs/nacos
-    cache_dir: ./cache/nacos
+#  nacos:
+#    host: 127.0.0.1
+#    port: 8848
+#    namespace: b652ebeb-fc2c-4f5f-8398-316914b0be27
+#    data_id: goboot
+#    group: DEFAULT_GROUP
+#    log_dir: ./logs/nacos
+#    cache_dir: ./cache/nacos
 
 
 # HTTP 服务器配置
@@ -26,22 +26,23 @@ http:
 
 # 数据库配置
 db:
-  db_host: localhost           # 数据库主机地址
-  db_port: 3306                # 数据库端口
-  db_user: root                # 数据库用户名
-  db_password: your_password   # 数据库密码
-  db_name: my_database         # 数据库名称
-  db_charset: utf8mb4          # 数据库字符集
-  db_max_idle_conns: 10        # 最大空闲连接数
-  db_max_open_conns: 100       # 最大打开连接数
-  db_conn_max_lifetime: 1h     # 连接最大存活时间
-  db_parse_time: true          # 是否解析时间
-  db_loc: Local                # 数据库时区
-  db_log_level: warn           # GORM 日志级别，可选 "silent", "error", "warn", "info"
-  db_enable_auto_migrate: false # 是否启用自动迁移
-  db_ssl_mode: disable         # SSL 模式（仅 PostgreSQL 使用）
-  db_socket: ''                # 数据库 Unix 套接字连接（适用于 Google Cloud 或特殊环境）
-  db_driver: mysql             # 数据库驱动类型，可选 "mysql", "postgresql"
+  db_host: 10.171.0.108
+  db_port: 3306
+  db_user: yce
+  db_password: "UEQ4$fds"
+  db_name: "yce"
+  db_charset: utf8mb4
+  db_max_idle_conns: 10
+  db_max_open_conns: 100
+  db_conn_max_lifetime: 1h
+  db_parse_time: true
+  db_loc: Local
+  db_log_level: warn
+  db_enable_auto_migrate: false
+  db_ssl_mode: disable
+  db_socket: ""
+  db_driver: mysql
+
 
 logger:
   level: info            # 日志级别（可选值: debug, info, warn, error）。默认: info

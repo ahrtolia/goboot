@@ -99,19 +99,9 @@ func (n *nacosAdapter) Watch(v *viper.Viper, onChange func()) error {
 				return
 			}
 
-			temp := viper.New()
-			temp.SetConfigType("yaml")
-			if err := temp.ReadConfig(strings.NewReader(data)); err != nil {
-				fmt.Println("[Nacos] Failed to parse config:", err)
+			if err := mergeConfig(v, data); err != nil {
+				fmt.Println("[Nacos] Failed to merge config:", err)
 				return
-			}
-
-			// 如果你有 cm.ReloadConfig() 可调用它，否则：
-			for k := range v.AllSettings() {
-				v.Set(k, nil) // 清空旧配置
-			}
-			for k, val := range temp.AllSettings() {
-				v.Set(k, val) // 设置新配置
 			}
 
 			onChange()

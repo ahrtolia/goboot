@@ -144,6 +144,16 @@ func SetGlobalLogger(l *zap.Logger, cleanup func()) {
 	globalCleanup = cleanup
 }
 
+func Close() {
+	globalMu.Lock()
+	defer globalMu.Unlock()
+	if globalCleanup != nil {
+		globalCleanup()
+	}
+	globalLogger = nil
+	globalCleanup = nil
+}
+
 func Debug(msg string, fields ...zap.Field) {
 	L().Debug(msg, fields...)
 }

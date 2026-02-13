@@ -18,7 +18,7 @@ import (
 // Injectors from wire.go:
 
 func CreateApp(configFile2 string) (*app.App, error) {
-	options := config.NewOptions()
+	options := config.NewOptions(configFile2)
 	configManager := config.InitConfigManager(options)
 	zapLogger, err := logger.NewLogger(configManager)
 	if err != nil {
@@ -32,7 +32,17 @@ func CreateApp(configFile2 string) (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
-	appApp, err := app.New(configManager, server)
+	gormOption, err := gorm.NewOption(configManager)
+	if err != nil {
+		return nil, err
+	}
+	db := gorm.New(gormOption)
+	context := app.NewContext(configManager, zapLogger, server, db)
+	loggerStarter := app.NewLoggerStarter(configManager, zapLogger)
+	httpStarter := app.NewHTTPStarter(configManager, server)
+	gormStarter := app.NewGormStarter(configManager, db)
+	v := app.NewStarters(loggerStarter, httpStarter, gormStarter)
+	appApp, err := app.New(configManager, context, v)
 	if err != nil {
 		return nil, err
 	}

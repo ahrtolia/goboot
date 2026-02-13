@@ -42,21 +42,12 @@ type Server struct {
 	currentCfg *Option
 	logger     *zap.Logger
 	cleanup    func() // 旧服务器清理函数
+	started    bool
 }
 
 func NewOption(cfg *config.ConfigManager) (*Option, error) {
 	v := cfg.GetViper()
-	opt := &Option{
-		Port:         8080,
-		Addr:         "0.0.0.0",
-		LogFormat:    "json",
-		Debug:        false,
-		GinMode:      "release",
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
-		MaxHeader:    1048576,
-	}
+	opt := defaultOption()
 
 	httpConfig := v.Sub("http")
 	if httpConfig != nil {
@@ -90,17 +81,32 @@ func NewServer(
 }
 
 func (s *Server) applyConfig(opt *Option) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	gin.SetMode(opt.GinMode)
 
-	// 创建新router实例
+	router := s.buildRouter()
+	newServer := &http.Server{
+		Addr:           fmt.Sprintf("%s:%d", opt.Addr, opt.Port),
+		Handler:        router,
+		ReadTimeout:    opt.ReadTimeout,
+		WriteTimeout:   opt.WriteTimeout,
+		IdleTimeout:    opt.IdleTimeout,
+		MaxHeaderBytes: opt.MaxHeader,
+	}
+
+	s.mu.Lock()
+	s.server = newServer
+	s.router = router
+	s.currentCfg = opt
+	s.mu.Unlock()
+
+	return nil
+}
+
+func (s *Server) buildRouter() *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Recovery())
 	router.Use(ginzap.RecoveryWithZap(s.logger, true))
 
-	// 配置中间件
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"*"},
@@ -118,43 +124,15 @@ func (s *Server) applyConfig(opt *Option) error {
 	})
 
 	if promInstance != nil {
-		promInstance.Use(router) // 将 Prometheus 挂载到新的 router
+		promInstance.Use(router)
 	}
-	// 注册pprof
 	pprof.Register(router)
 
-	// 创建新server实例
-	newServer := &http.Server{
-		Addr:           fmt.Sprintf("%s:%d", opt.Addr, opt.Port),
-		Handler:        router,
-		ReadTimeout:    opt.ReadTimeout,
-		WriteTimeout:   opt.WriteTimeout,
-		IdleTimeout:    opt.IdleTimeout,
-		MaxHeaderBytes: opt.MaxHeader,
-	}
-
-	// 启动新服务器
-	go func() {
-		s.logger.Info("Starting HTTP server", zap.String("addr", newServer.Addr))
-		if err := newServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			s.logger.Fatal("HTTP server failed to start", zap.Error(err))
-		}
-	}()
-
-	// 关闭旧服务器
-	if s.server != nil {
-		go s.gracefulShutdown(s.server)
-	}
-
-	s.server = newServer
-	s.router = router
-	s.currentCfg = opt
-
-	return nil
+	return router
 }
 
 func (s *Server) ReloadConfig(v *viper.Viper) error {
-	newOpt := &Option{}
+	newOpt := defaultOption()
 	if httpConfig := v.Sub("http"); httpConfig != nil {
 		if err := httpConfig.Unmarshal(newOpt); err != nil {
 			return fmt.Errorf("failed to unmarshal http options: %w", err)
@@ -167,30 +145,57 @@ func (s *Server) ReloadConfig(v *viper.Viper) error {
 		return nil
 	}
 
-	return s.applyConfig(newOpt)
+	s.mu.RLock()
+	wasStarted := s.started
+	oldServer := s.server
+	s.mu.RUnlock()
+
+	if err := s.applyConfig(newOpt); err != nil {
+		return err
+	}
+
+	if wasStarted {
+		if oldServer != nil {
+			_ = s.gracefulShutdown(oldServer)
+		}
+		s.mu.RLock()
+		newServer := s.server
+		s.mu.RUnlock()
+		s.startServer(newServer)
+	}
+
+	return nil
 }
 
 func (s *Server) configEqual(newOpt *Option) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	if s.currentCfg == nil {
+		return false
+	}
+
 	return s.currentCfg.Port == newOpt.Port &&
 		s.currentCfg.Addr == newOpt.Addr &&
+		s.currentCfg.LogFormat == newOpt.LogFormat &&
+		s.currentCfg.Debug == newOpt.Debug &&
+		s.currentCfg.GinMode == newOpt.GinMode &&
 		s.currentCfg.ReadTimeout == newOpt.ReadTimeout &&
 		s.currentCfg.WriteTimeout == newOpt.WriteTimeout &&
 		s.currentCfg.IdleTimeout == newOpt.IdleTimeout &&
 		s.currentCfg.MaxHeader == newOpt.MaxHeader
 }
 
-func (s *Server) gracefulShutdown(server *http.Server) {
+func (s *Server) gracefulShutdown(server *http.Server) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
 		s.logger.Error("HTTP server shutdown error", zap.Error(err))
-	} else {
-		s.logger.Info("HTTP server stopped gracefully")
+		return err
 	}
+	s.logger.Info("HTTP server stopped gracefully")
+	return nil
 }
 
 func (s *Server) GetRouter() *gin.Engine {
@@ -199,12 +204,34 @@ func (s *Server) GetRouter() *gin.Engine {
 	return s.router
 }
 
+func (s *Server) Start() error {
+	s.mu.Lock()
+	if s.started {
+		s.mu.Unlock()
+		return nil
+	}
+	if s.server == nil {
+		s.mu.Unlock()
+		return fmt.Errorf("http server not initialized")
+	}
+	server := s.server
+	s.started = true
+	s.mu.Unlock()
+
+	s.startServer(server)
+	return nil
+}
+
 func (s *Server) Close() error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	server := s.server
+	s.started = false
+	s.mu.Unlock()
 
-	if s.server != nil {
-		go s.gracefulShutdown(s.server)
+	if server != nil {
+		go func() {
+			_ = s.gracefulShutdown(server)
+		}()
 	}
 
 	if s.cleanup != nil {
@@ -218,6 +245,32 @@ func (s *Server) GetHttpServer() *http.Server {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.server
+}
+
+func (s *Server) startServer(server *http.Server) {
+	if server == nil {
+		return
+	}
+	go func() {
+		s.logger.Info("Starting HTTP server", zap.String("addr", server.Addr))
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			s.logger.Fatal("HTTP server failed to start", zap.Error(err))
+		}
+	}()
+}
+
+func defaultOption() *Option {
+	return &Option{
+		Port:         8080,
+		Addr:         "0.0.0.0",
+		LogFormat:    "json",
+		Debug:        false,
+		GinMode:      "release",
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+		MaxHeader:    1048576,
+	}
 }
 
 // Wire Provider Set

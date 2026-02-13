@@ -2,6 +2,7 @@ package gorm
 
 import (
 	"fmt"
+	"github.com/ahrtolia/goboot/pkg/config"
 	"github.com/google/wire"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -28,8 +29,17 @@ type Option struct {
 	DbDriver            string        `mapstructure:"db_driver" default:"mysql"`              // 数据库驱动类型，默认 "mysql"
 }
 
-func NewOption() *Option {
-	return &Option{}
+func NewOption(cfg *config.ConfigManager) (*Option, error) {
+	opt := defaultOption()
+	if cfg == nil || cfg.GetViper() == nil {
+		return opt, nil
+	}
+	if dbConfig := cfg.GetViper().Sub("db"); dbConfig != nil {
+		if err := dbConfig.Unmarshal(opt); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal db options: %w", err)
+		}
+	}
+	return opt, nil
 }
 
 func New(option *Option) *gorm.DB {
@@ -43,7 +53,37 @@ func New(option *Option) *gorm.DB {
 		log.Fatalf("无法连接到数据库: %v", err)
 	}
 
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("无法获取数据库连接池: %v", err)
+	}
+	if option.DbMaxIdleConns > 0 {
+		sqlDB.SetMaxIdleConns(option.DbMaxIdleConns)
+	}
+	if option.DbMaxOpenConns > 0 {
+		sqlDB.SetMaxOpenConns(option.DbMaxOpenConns)
+	}
+	if option.DbConnMaxLifetime > 0 {
+		sqlDB.SetConnMaxLifetime(option.DbConnMaxLifetime)
+	}
+
 	return db
+}
+
+func defaultOption() *Option {
+	return &Option{
+		DbHost:            "localhost",
+		DbPort:            3306,
+		DbCharset:         "utf8mb4",
+		DbMaxIdleConns:    10,
+		DbMaxOpenConns:    100,
+		DbConnMaxLifetime: time.Hour,
+		DbParseTime:       true,
+		DbLoc:             "Local",
+		DbLogLevel:        "warn",
+		DbSslMode:         "disable",
+		DbDriver:          "mysql",
+	}
 }
 
 var ProviderSet = wire.NewSet(New, NewOption)
