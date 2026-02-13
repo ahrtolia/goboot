@@ -1,0 +1,55 @@
+app:
+  name: "goboot-example"
+
+# 有这个段就启用 nacos；没有就只用本地配置
+#config_center:
+#  nacos:
+#    host: 127.0.0.1
+#    port: 8848
+#    namespace: "your-namespace"
+#    data_id: "goboot"
+#    group: "DEFAULT_GROUP"
+#    log_dir: "./logs/nacos"
+#    cache_dir: "./cache/nacos"
+
+# 有这个段就启用 HTTP
+http:
+  port: 8080
+  addr: 0.0.0.0
+  log_format: json
+  debug: false
+  gin_mode: release
+  read_timeout: 10s
+  write_timeout: 10s
+  idle_timeout: 60s
+  max_header: 1048576
+
+# 有这个段就启用 Logger
+logger:
+  level: info
+  development: false
+  file_name: app.log
+  max_size_mb: 20
+  max_age_days: 7
+  compress: false
+  console_enabled: true
+  file_enabled: true
+
+# 有这个段就启用 DB（需要你补齐账号）
+db:
+  db_host: localhost           # 数据库主机地址
+  db_port: 3306                # 数据库端口
+  db_user: root                # 数据库用户名
+  db_password: your_password   # 数据库密码
+  db_name: my_database         # 数据库名称
+  db_charset: utf8mb4          # 数据库字符集
+  db_max_idle_conns: 10        # 最大空闲连接数
+  db_max_open_conns: 100       # 最大打开连接数
+  db_conn_max_lifetime: 1h     # 连接最大存活时间
+  db_parse_time: true          # 是否解析时间
+  db_loc: Local                # 数据库时区
+  db_log_level: warn           # GORM 日志级别，可选 "silent", "error", "warn", "info"
+  db_enable_auto_migrate: false # 是否启用自动迁移
+  db_ssl_mode: disable         # SSL 模式（仅 PostgreSQL 使用）
+  db_socket: ''                # 数据库 Unix 套接字连接（适用于 Google Cloud 或特殊环境）
+  db_driver: mysql             # 数据库驱动类型，可选 "mysql", "postgresql"
