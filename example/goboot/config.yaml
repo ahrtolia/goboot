@@ -53,3 +53,25 @@ db:
   db_ssl_mode: disable         # SSL 模式（仅 PostgreSQL 使用）
   db_socket: ''                # 数据库 Unix 套接字连接（适用于 Google Cloud 或特殊环境）
   db_driver: mysql             # 数据库驱动类型，可选 "mysql", "postgresql"
+# 有这个段就启用 Cron
+cron:
+  location: Local
+  with_seconds: false
+  stop_timeout: 5s
+
+# 有这个段就启用 Redis
+redis:
+  addr: 127.0.0.1:6379
+  username: ""
+  password: ""
+  db: 0
+  max_retries: 3
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+  pool_size: 10
+  min_idle_conns: 2
+  pool_timeout: 4s
+  conn_max_idle_time: 5m
+  conn_max_lifetime: 0s
+  ping_timeout: 2s

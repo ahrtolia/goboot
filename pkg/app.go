@@ -81,5 +81,7 @@ var ProviderSet = wire.NewSet(
 	NewLoggerStarter,
 	NewHTTPStarter,
 	NewGormStarter,
+	NewCronStarter,
+	NewRedisStarter,
 	NewStarters,
 )

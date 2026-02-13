@@ -7,9 +7,11 @@ package main
 import (
 	app "github.com/ahrtolia/goboot/pkg"
 	"github.com/ahrtolia/goboot/pkg/config"
+	"github.com/ahrtolia/goboot/pkg/cron"
 	"github.com/ahrtolia/goboot/pkg/gin"
 	"github.com/ahrtolia/goboot/pkg/gorm"
 	"github.com/ahrtolia/goboot/pkg/logger"
+	redispkg "github.com/ahrtolia/goboot/pkg/redis"
 
 	"github.com/google/wire"
 )
@@ -32,6 +34,14 @@ var (
 		gorm.ProviderSet,
 	)
 
+	cronSet = wire.NewSet(
+		cron.ProviderSet,
+	)
+
+	redisSet = wire.NewSet(
+		redispkg.ProviderSet,
+	)
+
 	appSet = wire.NewSet(
 		app.ProviderSet,
 	)
@@ -41,6 +51,8 @@ var (
 		loggerSet,
 		httpSet,
 		dbSet,
+		cronSet,
+		redisSet,
 		appSet,
 	)
 )

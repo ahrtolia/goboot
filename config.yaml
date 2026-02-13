@@ -54,3 +54,26 @@ logger:
   # 输出相关配置
   console_enabled: true   # 是否启用控制台输出。默认: true
   file_enabled: true      # 是否启用文件输出。默认: true
+
+# Cron 任务配置
+cron:
+  location: Local
+  with_seconds: false
+  stop_timeout: 5s
+
+# Redis 配置
+redis:
+  addr: 127.0.0.1:6379
+  username: ""
+  password: ""
+  db: 0
+  max_retries: 3
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+  pool_size: 10
+  min_idle_conns: 2
+  pool_timeout: 4s
+  conn_max_idle_time: 5m
+  conn_max_lifetime: 0s
+  ping_timeout: 2s
