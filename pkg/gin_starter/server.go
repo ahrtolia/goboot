@@ -1,12 +1,13 @@
-package gin
+package gin_starter
 
 import (
 	"context"
 	"fmt"
-	"github.com/ahrtolia/goboot/pkg/config"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/ahrtolia/goboot/pkg/config"
 
 	"github.com/Depado/ginprom"
 	"github.com/gin-contrib/cors"
@@ -118,7 +119,7 @@ func (s *Server) buildRouter() *gin.Engine {
 
 	promInitOnce.Do(func() {
 		promInstance = ginprom.New(
-			ginprom.Subsystem("gin"),
+			ginprom.Subsystem("gin_starter"),
 			ginprom.Path("/metrics"),
 		)
 	})

@@ -9,9 +9,9 @@ package main
 import (
 	app "github.com/ahrtolia/goboot/pkg"
 	"github.com/ahrtolia/goboot/pkg/config"
-	"github.com/ahrtolia/goboot/pkg/cron"
-	"github.com/ahrtolia/goboot/pkg/gin"
-	"github.com/ahrtolia/goboot/pkg/gorm"
+	"github.com/ahrtolia/goboot/pkg/cron_starter"
+	"github.com/ahrtolia/goboot/pkg/gin_starter"
+	"github.com/ahrtolia/goboot/pkg/gorm_starter"
 	"github.com/ahrtolia/goboot/pkg/logger"
 	redispkg "github.com/ahrtolia/goboot/pkg/redis"
 	"github.com/google/wire"
@@ -26,24 +26,24 @@ func CreateApp(configFile2 string) (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
-	option, err := gin.NewOption(configManager)
+	option, err := gin_starter.NewOption(configManager)
 	if err != nil {
 		return nil, err
 	}
-	server, err := gin.NewServer(zapLogger, configManager, option)
+	server, err := gin_starter.NewServer(zapLogger, configManager, option)
 	if err != nil {
 		return nil, err
 	}
-	gormOption, err := gorm.NewOption(configManager)
+	gormOption, err := gorm_starter.NewOption(configManager)
 	if err != nil {
 		return nil, err
 	}
-	db := gorm.New(gormOption)
-	cronOption, err := cron.NewOption(configManager)
+	db := gorm_starter.New(gormOption)
+	cronOption, err := cron_starter.NewOption(configManager)
 	if err != nil {
 		return nil, err
 	}
-	scheduler, err := cron.NewScheduler(zapLogger, configManager, cronOption)
+	scheduler, err := cron_starter.NewScheduler(zapLogger, configManager, cronOption)
 	if err != nil {
 		return nil, err
 	}
@@ -76,11 +76,11 @@ var (
 
 	loggerSet = wire.NewSet(logger.ProviderSet)
 
-	httpSet = wire.NewSet(gin.ProviderSet)
+	httpSet = wire.NewSet(gin_starter.ProviderSet)
 
-	dbSet = wire.NewSet(gorm.ProviderSet)
+	dbSet = wire.NewSet(gorm_starter.ProviderSet)
 
-	cronSet = wire.NewSet(cron.ProviderSet)
+	cronSet = wire.NewSet(cron_starter.ProviderSet)
 
 	redisSet = wire.NewSet(redispkg.ProviderSet)
 

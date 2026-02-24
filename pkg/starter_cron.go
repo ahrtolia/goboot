@@ -4,15 +4,15 @@ import (
 	"context"
 
 	"github.com/ahrtolia/goboot/pkg/config"
-	"github.com/ahrtolia/goboot/pkg/cron"
+	"github.com/ahrtolia/goboot/pkg/cron_starter"
 )
 
 type CronStarter struct {
 	cfg       *config.ConfigManager
-	scheduler *cron.Scheduler
+	scheduler *cron_starter.Scheduler
 }
 
-func NewCronStarter(cfg *config.ConfigManager, scheduler *cron.Scheduler) *CronStarter {
+func NewCronStarter(cfg *config.ConfigManager, scheduler *cron_starter.Scheduler) *CronStarter {
 	return &CronStarter{
 		cfg:       cfg,
 		scheduler: scheduler,
@@ -20,11 +20,11 @@ func NewCronStarter(cfg *config.ConfigManager, scheduler *cron.Scheduler) *CronS
 }
 
 func (s *CronStarter) Name() string {
-	return "cron"
+	return "cron_starter"
 }
 
 func (s *CronStarter) Enabled(ctx *Context) bool {
-	return enabledByConfig(ctx, "", "cron", false)
+	return enabledByConfig(ctx, "", "cron_starter", false)
 }
 
 func (s *CronStarter) Init(ctx *Context) error {

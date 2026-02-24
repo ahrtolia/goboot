@@ -3,8 +3,8 @@ package app
 import (
 	"context"
 	"github.com/ahrtolia/goboot/pkg/config"
-	"github.com/ahrtolia/goboot/pkg/cron"
-	"github.com/ahrtolia/goboot/pkg/gin"
+	"github.com/ahrtolia/goboot/pkg/cron_starter"
+	"github.com/ahrtolia/goboot/pkg/gin_starter"
 	redispkg "github.com/ahrtolia/goboot/pkg/redis"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -13,13 +13,13 @@ import (
 type Context struct {
 	Config *config.ConfigManager
 	Logger *zap.Logger
-	HTTP   *gin.Server
+	HTTP   *gin_starter.Server
 	DB     *gorm.DB
-	Cron   *cron.Scheduler
+	Cron   *cron_starter.Scheduler
 	Redis  *redispkg.Client
 }
 
-func NewContext(cfg *config.ConfigManager, logger *zap.Logger, httpSrv *gin.Server, db *gorm.DB, cronScheduler *cron.Scheduler, redisClient *redispkg.Client) *Context {
+func NewContext(cfg *config.ConfigManager, logger *zap.Logger, httpSrv *gin_starter.Server, db *gorm.DB, cronScheduler *cron_starter.Scheduler, redisClient *redispkg.Client) *Context {
 	return &Context{
 		Config: cfg,
 		Logger: logger,

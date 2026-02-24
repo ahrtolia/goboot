@@ -3,15 +3,15 @@ package app
 import (
 	"context"
 	"github.com/ahrtolia/goboot/pkg/config"
-	"github.com/ahrtolia/goboot/pkg/gin"
+	"github.com/ahrtolia/goboot/pkg/gin_starter"
 )
 
 type HTTPStarter struct {
 	cfg    *config.ConfigManager
-	server *gin.Server
+	server *gin_starter.Server
 }
 
-func NewHTTPStarter(cfg *config.ConfigManager, server *gin.Server) *HTTPStarter {
+func NewHTTPStarter(cfg *config.ConfigManager, server *gin_starter.Server) *HTTPStarter {
 	return &HTTPStarter{
 		cfg:    cfg,
 		server: server,

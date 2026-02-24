@@ -1,13 +1,14 @@
-package gorm
+package gorm_starter
 
 import (
 	"fmt"
+	"log"
+	"time"
+
 	"github.com/ahrtolia/goboot/pkg/config"
 	"github.com/google/wire"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"log"
-	"time"
 )
 
 type Option struct {

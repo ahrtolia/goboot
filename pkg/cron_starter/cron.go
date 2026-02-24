@@ -1,4 +1,4 @@
-package cron
+package cron_starter
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var ErrCronDisabled = errors.New("cron scheduler is disabled")
+var ErrCronDisabled = errors.New("cron_starter scheduler is disabled")
 
 type Option struct {
 	Enabled     bool          `mapstructure:"enabled"`
@@ -25,16 +25,16 @@ type Option struct {
 
 func NewOption(cfg *config.ConfigManager) (*Option, error) {
 	opt := &Option{
-		Enabled:     cfg.GetViper().InConfig("cron"),
+		Enabled:     cfg.GetViper().InConfig("cron_starter"),
 		Location:    "Local",
 		WithSeconds: false,
 		StopTimeout: 5 * time.Second,
 	}
 
 	v := cfg.GetViper()
-	if cronCfg := v.Sub("cron"); cronCfg != nil {
+	if cronCfg := v.Sub("cron_starter"); cronCfg != nil {
 		if err := cronCfg.Unmarshal(opt); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal cron options: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal cron_starter options: %w", err)
 		}
 	}
 	return opt, nil
@@ -56,7 +56,7 @@ func NewScheduler(logger *zap.Logger, cfg *config.ConfigManager, opt *Option) (*
 		return nil, err
 	}
 
-	if err := cfg.RegisterReloader("cron", s); err != nil {
+	if err := cfg.RegisterReloader("cron_starter", s); err != nil {
 		return nil, err
 	}
 
@@ -75,7 +75,7 @@ func (s *Scheduler) applyConfig(opt *Option) error {
 
 	loc, err := time.LoadLocation(opt.Location)
 	if err != nil {
-		return fmt.Errorf("invalid cron location: %w", err)
+		return fmt.Errorf("invalid cron_starter location: %w", err)
 	}
 
 	options := []cron.Option{cron.WithLocation(loc)}
@@ -90,7 +90,7 @@ func (s *Scheduler) applyConfig(opt *Option) error {
 	s.cron = newCron
 	s.currentCfg = opt
 
-	s.logger.Info("cron scheduler started", zap.Bool("with_seconds", opt.WithSeconds), zap.String("location", opt.Location))
+	s.logger.Info("cron_starter scheduler started", zap.Bool("with_seconds", opt.WithSeconds), zap.String("location", opt.Location))
 	return nil
 }
 
@@ -117,19 +117,19 @@ func (s *Scheduler) stopLocked(timeout time.Duration) {
 
 func (s *Scheduler) ReloadConfig(v *viper.Viper) error {
 	newOpt := &Option{
-		Enabled:     v.InConfig("cron"),
+		Enabled:     v.InConfig("cron_starter"),
 		Location:    "Local",
 		WithSeconds: false,
 		StopTimeout: 5 * time.Second,
 	}
-	if cronCfg := v.Sub("cron"); cronCfg != nil {
+	if cronCfg := v.Sub("cron_starter"); cronCfg != nil {
 		if err := cronCfg.Unmarshal(newOpt); err != nil {
-			return fmt.Errorf("failed to unmarshal cron options: %w", err)
+			return fmt.Errorf("failed to unmarshal cron_starter options: %w", err)
 		}
 	}
 
 	if s.configEqual(newOpt) {
-		s.logger.Debug("cron config unchanged, skip reload")
+		s.logger.Debug("cron_starter config unchanged, skip reload")
 		return nil
 	}
 
